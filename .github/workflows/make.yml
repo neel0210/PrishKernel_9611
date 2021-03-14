@@ -1,0 +1,79 @@
+name: C/C++ CI
+
+on:
+  push:
+    branches: [ TEST ]
+  pull_request:
+    branches: [ TEST ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+# Install requirements
+      - name: Prepare
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install \
+          bison build-essential curl flex git gnupg gperf \
+          liblz4-tool libncurses5-dev libsdl1.2-dev libxml2 \
+          libxml2-utils lzop pngcrush schedtool \
+          squashfs-tools xsltproc zip zlib1g-dev \
+          build-essential kernel-package libncurses5-dev \
+          bzip2 git python \
+          gcc-aarch64-linux-gnu g++-aarch64-linux-gnu -y
+
+      # Clone toolchain
+      - name: Clone toolchain
+        run: |
+          cd ~
+          git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 -b ndk-release-r18 toolchain --depth=1
+          mkdir clang && wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/android-9.0.0_r6/clang-4639204.tar.gz && tar -xzvf *.tar.gz -C clang && rm *.tar.gz
+
+      # Clone source
+      - name: Clone source
+        run: |
+          cd ~
+          git clone https://github.com/${GITHUB_REPOSITORY} kernel --depth=1
+      # Build!
+      - name: Build!
+        run: |
+          cd ~/kernel
+          export ARCH=arm64
+          make clean && make mrproper
+          make A51_defconfig O=a51
+          make M31_defconfig O=m31
+          make -j$(nproc --all) CROSS_COMPILE=$HOME/toolchain/bin/aarch64-linux-android- CC=$HOME/clang/bin/clang CLANG_TRIPLE=aarch64-linux-gnu- O=a51
+          make -j$(nproc --all) CROSS_COMPILE=$HOME/toolchain/bin/aarch64-linux-android- CC=$HOME/clang/bin/clang CLANG_TRIPLE=aarch64-linux-gnu- O=m31
+          
+
+      - name: Pack!
+        run: |
+          cp -r ./m31/arch/arm64/boot/Image ./PRISH/AK/Image
+          cd PRISH/AK
+          . zip.sh
+          cd ../..
+          cp -r ./PRISH/AK/1*.zip ./output/PrishKernel-ONEUI-R3-Ak-M31.zip
+          rm ./PRISH/AK/*.zip
+          rm ./PRISH/AK/Image
+     # PackintoANykernel  A51
+      - name: Build!
+        run: |
+          cp -r ./a51/arch/arm64/boot/Image ./PRISH/AK/Image
+          cd PRISH/AK
+          . zip.sh
+          cd ../..
+          cp -r ./PRISH/AK/1*.zip ./output/PrishKernel-ONEUI-R3-Ak-M31.zip
+          rm ./PRISH/AK/*.zip
+          rm ./PRISH/AK/Image
+          make clean && make mrproper
+          
+# Half of the script code has from Hendra Manudinata @hendramanu          
+        
+     
+
+
+
+     
+
